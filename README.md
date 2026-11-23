@@ -12,6 +12,23 @@ question + patient_id ─► BGE query ─► Chroma search filtered to that pat
                       ─► Qwen2.5-7B-Instruct ─► answer with [n] citations → report page
 ```
 
+## Status / handoff
+
+**Done (RAG role):** ingestion, chunking, embeddings, vector store, patient-filtered retrieval,
+reranking, grounded generation with page citations, retrieval evaluation, synthetic corpus + eval set.
+
+**For the rest of the team:**
+
+| Who | What to do |
+|---|---|
+| Fine-tuning | Point `generation.hf.adapter_path` at your LoRA adapter (`~/checkpoints/job-<ID>`) |
+| Evaluation | Run the 3-way comparison on the GPU server (table below) using `RAGPipeline().answer(...)`; answer-quality metrics / LLM-as-judge live with you |
+| Serving | Call `RAGPipeline().answer(patient_id, question)` from the FastAPI endpoint; it returns `answer` + `sources` |
+| Data | If real/de-identified reports replace the synthetic ones, check the header regexes in `rag/ingest.py` (`HEADER_PATTERNS`) |
+
+**Not yet verified:** the `hf` backend (transformers + LoRA adapter) is written but untested; it needs a CUDA GPU.
+Test it in a Slurm job on VM03 before access ends on 2 Dec 2026. Set `embedding.device: cuda` there.
+
 ## Quick start (laptop)
 
 ```bash
@@ -63,7 +80,7 @@ The required comparison is three runs of the same eval set:
 |---|---|---|
 | PDF parsing | PyMuPDF `find_tables()` + per-cell `get_textbox()` | `table.extract()` corrupted decimals ("12.2" → "122\n."); reading each cell by its bounding box keeps values exact |
 | Chunking | one chunk per lab-test row (`row`), remarks as separate chunks | keeps value + unit + reference range + flag together; compared against fixed 500-char windows (`fixed`) |
-| Embeddings | `BAAI/bge-small-en-v1.5` (bge-base as comparison) | strong retrieval quality for its size; runs on CPU |
+| Embeddings | `BAAI/bge-small-en-v1.5` | strong retrieval quality for its size; runs on a laptop CPU in ~50 s for 4,200 chunks. Already reaches R@5 = 0.99, so a larger model was not needed (a bge-base run is one command: `--model BAAI/bge-base-en-v1.5`) |
 | Vector store | ChromaDB (embedded, folder on disk) | native metadata filtering → patient filter inside the search; no server to run |
 | Patient isolation | `where={"patient_id": ...}` inside the vector query | another patient's data can never be retrieved; checked by `cross_patient_leaks` in eval |
 | Reranker | `BAAI/bge-reranker-base` over top-20, **fused with the dense ranking (RRF)** | used alone it *hurt* (it ranks "Total Cholesterol" first for "Is my MCV normal?": weak on lab abbreviations); fused, it improves Recall@1 0.835 → 0.89 |
