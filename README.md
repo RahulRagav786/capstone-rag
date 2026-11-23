@@ -34,7 +34,7 @@ Test it in a Slurm job on VM03 before access ends on 2 Dec 2026. Set `embedding.
 ```bash
 uv venv --python 3.11 && source .venv/bin/activate
 uv pip install -r requirements.txt
-python scripts/make_synthetic_reports.py --n 200     # synthetic PDFs + eval questions
+# python scripts/make_synthetic_reports.py --n 200   # optional: PDFs are already in data/reports/
 python scripts/build_index.py                        # PDFs -> chunks -> BGE -> chroma_db/
 ollama pull qwen2.5:7b-instruct                      # 4-bit local copy of the base model
 python scripts/ask.py --patient P0001 "Explain my HbA1c report"
