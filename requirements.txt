@@ -1,0 +1,13 @@
+# RAG pipeline (laptop or server)
+pymupdf>=1.24
+chromadb>=0.5
+sentence-transformers>=3.0
+pyyaml
+requests
+reportlab            # only for scripts/make_synthetic_reports.py
+
+# GPU server only (generation.backend: hf) — already in the VM's ~/venv for the QLoRA starter
+# transformers
+# peft
+# bitsandbytes
+# accelerate

@@ -1,0 +1,46 @@
+# Single source of truth for the RAG pipeline.
+# Teammates change settings here, not in code.
+
+paths:
+  reports_dir: data/reports          # input PDFs (one blood report per file)
+  reference_dir: data/reference      # shared, non-patient explainer docs
+  chroma_dir: chroma_db              # generated index (git-ignored)
+  eval_file: data/eval/retrieval_questions.jsonl
+
+chunking:
+  strategy: row                      # row  = one lab test per chunk (table-aware)
+                                     # fixed = fixed-size character windows (baseline for the ablation)
+  fixed_size: 500                    # used only when strategy = fixed
+  fixed_overlap: 100
+
+embedding:
+  model: BAAI/bge-small-en-v1.5      # swap to BAAI/bge-base-en-v1.5 for the comparison run
+  query_instruction: "Represent this sentence for searching relevant passages: "
+  batch_size: 64
+  device: cpu                        # cpu (Mac: torch's MPS backend crashes on macOS 14) | cuda (GPU server)
+
+store:
+  collection: lab_reports
+
+retrieval:
+  mode: rag                          # rag | full_report (whole report in prompt, no search) | none (question only)
+  candidate_k: 20                   # dense candidates per patient before reranking
+  final_k: 5                         # patient chunks passed to the LLM
+  reference_k: 2                     # general explainer chunks passed to the LLM
+  use_reranker: true
+
+reranker:
+  model: BAAI/bge-reranker-base
+  mode: rrf                          # replace = reranker order only | rrf = fuse dense + reranker ranks
+
+generation:
+  backend: ollama                    # ollama (laptop, 4-bit) | hf (GPU server, supports LoRA adapter) | none
+  temperature: 0.1
+  max_new_tokens: 512
+  ollama:
+    model: qwen2.5:7b-instruct
+    url: http://localhost:11434
+  hf:
+    base_model: Qwen/Qwen2.5-7B-Instruct
+    adapter_path: null               # e.g. ~/checkpoints/job-123  (the fine-tuning teammate's output)
+    load_in_4bit: true
