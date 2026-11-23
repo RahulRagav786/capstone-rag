@@ -66,8 +66,24 @@ The required comparison is three runs of the same eval set:
 | Embeddings | `BAAI/bge-small-en-v1.5` (bge-base as comparison) | strong retrieval quality for its size; runs on CPU |
 | Vector store | ChromaDB (embedded, folder on disk) | native metadata filtering → patient filter inside the search; no server to run |
 | Patient isolation | `where={"patient_id": ...}` inside the vector query | another patient's data can never be retrieved; checked by `cross_patient_leaks` in eval |
-| Reranker | `BAAI/bge-reranker-base` cross-encoder over top-20 | re-scores question–chunk pairs jointly; fixes near-miss ordering of dense search |
+| Reranker | `BAAI/bge-reranker-base` over top-20, **fused with the dense ranking (RRF)** | used alone it *hurt* (it ranks "Total Cholesterol" first for "Is my MCV normal?": weak on lab abbreviations); fused, it improves Recall@1 0.835 → 0.89 |
 | Grounding | numbered sources, cite-or-abstain prompt, no diagnosis/medication | safety for medical content; report text treated as data (prompt-injection guard) |
+
+## Retrieval results (200 synthetic reports, 600 questions, bge-small)
+
+| Chunking | Ranking | R@1 | R@3 | R@5 | MRR | Cross-patient leaks | ms/query (M2 CPU) |
+|---|---|---|---|---|---|---|---|
+| row | dense only | 0.835 | 0.970 | 0.993 | 0.898 | 0 | 27 |
+| row | reranker only | 0.725 | 0.905 | 0.952 | 0.822 | 0 | 886 |
+| **row** | **dense + reranker (RRF)** | **0.890** | 0.968 | 0.992 | **0.931** | 0 | 892 |
+| fixed 500 | dense only | 0.750 | 0.982 | 1.000 | 0.862 | 0 | 23 |
+| fixed 500 | reranker only | 0.480 | 0.898 | 0.998 | 0.691 | 0 | 659 |
+
+Caveat: fixed chunks hold ~9 tests each and a report has only ~5 of them, so fixed R@5 ≈ "the whole
+report" and is not comparable at equal k. Compare R@1 / MRR, or prompt tokens per answer.
+
+End-to-end check (Ollama 4-bit Qwen2.5-7B, 8 GB M2): correct, cited answer for "Explain my HbA1c report";
+~8 min generation because the model does not fit in RAM. Run generation evals on the GPU server.
 
 ## Layout
 
