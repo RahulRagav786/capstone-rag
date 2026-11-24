@@ -53,6 +53,53 @@ out["sources"]   # [{n, label, report_id, page, source_file, text}, ...]
 
 Overrides without editing the file: `RAGPipeline(overrides={"generation.backend": "none"})`.
 
+## HTTP API (FastAPI): call it from any client
+
+```bash
+uvicorn rag.api:app --host 0.0.0.0 --port 8000
+# interactive docs + "Try it out": http://localhost:8000/docs
+```
+
+| Method | Path | Body | Returns |
+|---|---|---|---|
+| GET | `/health` | — | status, chunks indexed, generation backend |
+| POST | `/ask` | JSON `{"patient_id": "P0001", "question": "Explain my HbA1c report", "mode": "rag"}` | `answer` + `sources` (report, page, text) |
+| POST | `/reports` | multipart: `file` (PDF), optional `patient_id` | indexed `patient_id`, `report_id`, pages, chunks |
+| POST | `/explain` | multipart: `file` (PDF), optional `question`, optional `patient_id` | upload info + `answer` + `sources` for **that report only** |
+| GET | `/patients/{patient_id}/reports` | — | that patient's indexed reports |
+| DELETE | `/patients/{patient_id}/reports/{report_id}` | — | removes one report (index + stored PDF) |
+
+```bash
+# ask about an indexed patient
+curl -X POST localhost:8000/ask -H "Content-Type: application/json" \
+     -d '{"patient_id": "P0001", "question": "Explain my HbA1c report"}'
+
+# upload a report and get it explained in one call
+curl -X POST localhost:8000/explain -F "file=@data/reports/R0002_P0002.pdf"
+
+# upload a report whose header has no "Patient ID:" line
+curl -X POST localhost:8000/reports -F "file=@my_report.pdf" -F "patient_id=P1234"
+```
+
+Behaviour:
+- `/explain` with no `question` hands the model the **whole uploaded report** (`full_report` mode), which suits
+  "explain my report"; with a specific question it retrieves only the relevant results (`rag` mode).
+- The patient ID is read from the PDF header (`Patient ID: …`); a `patient_id` form field overrides it, and is
+  required when the header has none. PDFs without tables fall back to plain-text chunks.
+- Rejected: non-PDF (415), > 15 MB (413), scanned PDFs with no text layer (422; no OCR yet), invalid IDs (422).
+
+| Env var | Effect |
+|---|---|
+| `RAG_API_KEY` | if set, clients must send header `X-API-Key: <value>` (all routes except `/health`) |
+| `RAG_BACKEND` | `ollama` / `hf` / `none`: override the generation backend without editing config |
+| `RAG_CONFIG` | path to a different config.yaml |
+| `RAG_CORS_ORIGINS` | comma-separated browser origins allowed (default `*`) |
+
+**Limits to know before a demo:** the API key protects the whole API, but there is **no per-patient login**:
+anyone holding the key can query any patient ID. Fine for the capstone demo; a real deployment needs user
+authentication mapped to patient IDs. Uploaded PDFs are stored in `data/uploads/` (git-ignored).
+On the 8 GB laptop one answer takes ~8 min with Qwen-7B; on the GPU server use `RAG_BACKEND=hf`.
+
 ## On the GPU server (fine-tuned model)
 
 Set in `config.yaml`:

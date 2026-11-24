@@ -6,6 +6,11 @@ pyyaml
 requests
 reportlab            # only for scripts/make_synthetic_reports.py
 
+# HTTP API (rag/api.py)
+fastapi>=0.110
+uvicorn>=0.29
+python-multipart     # file uploads
+
 # GPU server only (generation.backend: hf) — already in the VM's ~/venv for the QLoRA starter
 # transformers
 # peft

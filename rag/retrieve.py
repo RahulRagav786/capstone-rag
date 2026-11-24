@@ -12,6 +12,13 @@ REFERENCE_ID = "REFERENCE"
 _RERANKERS: dict = {}
 
 
+def patient_filter(patient_id: str, report_id: str | None = None) -> dict:
+    """Chroma `where` clause: always the patient, optionally one specific report of theirs."""
+    if report_id:
+        return {"$and": [{"patient_id": patient_id}, {"report_id": report_id}]}
+    return {"patient_id": patient_id}
+
+
 class Retriever:
     def __init__(self, cfg: dict):
         self.cfg = cfg
@@ -51,12 +58,13 @@ class Retriever:
         return sorted(hits, key=lambda h: h["fused_score"], reverse=True)
 
     def retrieve(self, patient_id: str, question: str, final_k: int | None = None,
-                 use_reranker: bool | None = None) -> dict:
+                 use_reranker: bool | None = None, report_id: str | None = None) -> dict:
         final_k = final_k or self.r["final_k"]
         rerank = self.r.get("use_reranker") if use_reranker is None else use_reranker
         qv = self.embedder.embed_query(question)
 
-        patient = self._dense(qv, {"patient_id": patient_id}, self.r["candidate_k"])
+        where = patient_filter(patient_id, report_id)
+        patient = self._dense(qv, where, self.r["candidate_k"])
         if rerank:
             patient = self._rerank(question, patient)
         reference = []

@@ -9,4 +9,6 @@ chroma_db/
 # Synthetic reports in data/reports/ ARE committed (generated, no real patients).
 # Real or de-identified patient data must never be committed: keep it in data/real/.
 data/real/
+# PDFs uploaded through the API may be real patient reports
+data/uploads/
 results/

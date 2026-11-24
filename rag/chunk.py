@@ -59,11 +59,19 @@ def chunk_report_rows(doc: dict) -> list[dict]:
                 test, result, unit, ref, flag = (row + [""] * 5)[:5]
                 if not test:
                     continue
+                dated = f" dated {meta['report_date']}" if meta.get("report_date") else ""
                 text = (f"{table['panel']} — {test}: {result} {unit} "
                         f"(reference range {ref}); {FLAG_TEXT.get(flag, flag)}. "
-                        f"Report {meta.get('report_id', '')} dated {meta.get('report_date', '')}, page {page['page']}.")
+                        f"Report {meta.get('report_id', '')}{dated}, page {page['page']}.")
                 chunks.append({"text": text, "metadata": {**base, "panel": table["panel"], "tests": test,
                                                           "flag": flag or "NORMAL"}})
+        # pages with no detectable table (scanned-to-text, letter-style reports, other lab layouts):
+        # fall back to text windows so nothing on the page is lost
+        if not page["tables"]:
+            for piece in _window(page["full_text"], 500, 100):
+                chunks.append({"text": piece + f" (Report {meta.get('report_id', '')}, page {page['page']})",
+                               "metadata": {**base, "panel": "text", "tests": "", "flag": "NA"}})
+            continue
         # free text (remarks etc.), minus repeated headers and panel titles
         panels = {t["panel"] for t in page["tables"]}
         lines = [l for l in page["text"].splitlines() if l.strip() and l not in header_lines and l not in panels]

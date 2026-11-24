@@ -44,6 +44,22 @@ def get_collection(cfg: dict, create: bool = False):
     return client.get_collection(name)
 
 
+def add_chunks(chunks: list[dict], cfg: dict) -> int:
+    """Add (or overwrite, same id) chunks in the existing index: used for API uploads."""
+    if not chunks:
+        return 0
+    col = get_collection(cfg, create=True)
+    vectors = Embedder(cfg).embed_passages([c["text"] for c in chunks])
+    col.upsert(ids=[c["id"] for c in chunks], documents=[c["text"] for c in chunks],
+               metadatas=[c["metadata"] for c in chunks], embeddings=vectors)
+    return len(chunks)
+
+
+def delete_report(cfg: dict, where: dict) -> None:
+    """Delete chunks matching a Chroma filter, e.g. retrieve.patient_filter(patient_id, report_id)."""
+    get_collection(cfg).delete(where=where)
+
+
 def build_index(chunks: list[dict], cfg: dict, reset: bool = True) -> int:
     client = chromadb.PersistentClient(path=cfg["paths"]["chroma_dir"],
                                        settings=Settings(anonymized_telemetry=False))

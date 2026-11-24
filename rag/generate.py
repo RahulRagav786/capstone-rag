@@ -29,7 +29,8 @@ def format_sources(patient_hits: list[dict], reference_hits: list[dict]) -> tupl
         if m.get("doc_type") == "reference":
             label = f"General information ({m.get('source_file')}, page {m.get('page')})"
         else:
-            label = f"Patient report {m.get('report_id')} dated {m.get('report_date')}, page {m.get('page')}"
+            dated = f" dated {m['report_date']}" if m.get("report_date") else ""
+            label = f"Patient report {m.get('report_id')}{dated}, page {m.get('page')}"
         lines.append(f"[{n}] {label}\n{h['text']}")
         sources.append({"n": n, "label": label, "report_id": m.get("report_id"), "page": m.get("page"),
                         "source_file": m.get("source_file"), "doc_type": m.get("doc_type"), "text": h["text"]})
